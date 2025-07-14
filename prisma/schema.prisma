@@ -1,0 +1,93 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  createdAt DateTime @default(now())
+
+  reports  Report[]
+  searches Search[]
+
+  requestedAccess  ReportAccessRequest[] @relation("RequestingUser")
+  receivedRequests ReportAccessRequest[] @relation("ReportOwner")
+}
+
+model Report {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+
+  name        String?
+  instagramId String? @db.VarChar(100)
+  facebookId  String? @db.VarChar(100)
+  email       String? @db.VarChar(100)
+  phoneNumber String? @db.VarChar(20)
+  rating      Int
+  description String?
+
+  accessRequests ReportAccessRequest[]
+  SearchResult   SearchResult[]
+}
+
+model Search {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+
+  // Any identifier can be optional
+  instagramId String? @db.VarChar(100)
+  facebookId  String? @db.VarChar(100)
+  email       String? @db.VarChar(100)
+  phoneNumber String? @db.VarChar(20)
+  name        String?
+
+  searchResults SearchResult[]
+
+  @@index([instagramId, facebookId, email, phoneNumber])
+}
+
+model SearchResult {
+  id        String @id @default(uuid())
+  searchId  String
+  reportId  String
+  matchedOn String // 'instagramId', 'email', etc.
+
+  search Search @relation(fields: [searchId], references: [id])
+  report Report @relation(fields: [reportId], references: [id])
+}
+
+model ReportAccessRequest {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+
+  requesterId String
+  requester   User   @relation("RequestingUser", fields: [requesterId], references: [id])
+
+  reportId String
+  report   Report @relation(fields: [reportId], references: [id])
+
+  reportOwnerId String
+  reportOwner   User   @relation("ReportOwner", fields: [reportOwnerId], references: [id])
+
+  message String       @db.Text
+  status  AccessStatus @default(PENDING)
+
+  @@index([requesterId])
+  @@index([reportOwnerId])
+  @@index([reportId])
+}
+
+enum AccessStatus {
+  PENDING
+  APPROVED
+  DENIED
+}
